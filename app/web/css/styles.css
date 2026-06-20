@@ -110,6 +110,22 @@ body {
   font-size: 0.7rem; color: #fff; background: var(--remark-color);
   border-radius: 999px; padding: 1px 7px; min-width: 20px; text-align: center;
 }
+/* Per-row hide control: subtle by default (also touch-visible — no hover on
+   Android Mode 2), emphasised on hover/focus. Hiding is a view pref, not a delete. */
+.file-item .fi-hide {
+  flex: none; border: none; background: none; cursor: pointer; color: var(--fg-soft);
+  font-size: 0.95rem; line-height: 1; padding: 2px 5px; border-radius: 6px; opacity: 0.4;
+}
+.file-item:hover .fi-hide { opacity: 0.75; }
+.file-item .fi-hide:hover, .file-item .fi-hide:focus-visible { opacity: 1; color: var(--fg); background: var(--bg-soft); }
+.file-item.hidden-row { opacity: 0.5; }
+.file-item.hidden-row .fi-hide { opacity: 0.8; }
+/* Footer to reveal / re-collapse hidden plans. */
+.file-hidden-toggle {
+  list-style: none; margin: 4px 4px 0; padding: 7px 10px; cursor: pointer; user-select: none;
+  font-size: 0.74rem; color: var(--fg-soft); border-radius: 8px;
+}
+.file-hidden-toggle:hover { background: var(--bg-elev); color: var(--fg); }
 .main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .view[hidden] { display: none; }

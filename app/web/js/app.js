@@ -17,7 +17,7 @@
     renderer: null,
     files: [],
     query: '',
-    ui: { outline: true },
+    ui: { outline: true, hidden: new Set(), showHidden: false },
     panes: [],
     active: null,
     split: false,
@@ -283,8 +283,26 @@
     MDP.ui.filelist.render(els.fileList, {
       files: state.files, cfg: state.cfg, query: state.query,
       currentPath: state.active && state.active.doc && state.active.doc.path,
-      onOpen: openByPath
+      hidden: state.ui.hidden, showHidden: state.ui.showHidden,
+      onOpen: openByPath, onToggleHide: toggleHide, onToggleShowHidden: toggleShowHidden
     });
+  }
+
+  // Hidden plans are a view-only preference (the file is untouched), persisted to
+  // localStorage like the outline toggle. `mdp.hidden` is the JSON array of keys.
+  function saveHidden() {
+    try { localStorage.setItem('mdp.hidden', JSON.stringify(Array.from(state.ui.hidden))); } catch (e) {}
+  }
+  function toggleHide(key) {
+    if (state.ui.hidden.has(key)) state.ui.hidden.delete(key);
+    else state.ui.hidden.add(key);
+    saveHidden();
+    renderFileList();
+  }
+  function toggleShowHidden() {
+    state.ui.showHidden = !state.ui.showHidden;
+    try { localStorage.setItem('mdp.showHidden', state.ui.showHidden ? '1' : '0'); } catch (e) {}
+    renderFileList();
   }
   async function openByPath(path) {
     const pane = state.active || state.panes[0];
@@ -407,9 +425,15 @@
   }
 
   function loadUIPrefs() {
-    let outline = true;
+    let outline = true, hidden = [], showHidden = false;
     try { outline = localStorage.getItem('mdp.outline') !== '0'; } catch (e) {}
-    return { outline: outline };
+    try { hidden = JSON.parse(localStorage.getItem('mdp.hidden') || '[]'); } catch (e) {}
+    try { showHidden = localStorage.getItem('mdp.showHidden') === '1'; } catch (e) {}
+    return {
+      outline: outline,
+      hidden: new Set(Array.isArray(hidden) ? hidden : []),
+      showHidden: showHidden
+    };
   }
 
   function wireControls() {

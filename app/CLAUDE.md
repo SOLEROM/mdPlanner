@@ -77,7 +77,12 @@ web/js/
                                 (cfg.standaloneRoot, default ../../plans) when served over
                                 http(s) — derives badges via remarks.js (loads after it).
   ui/dom.js     MDP.ui.dom   → h(tag, attrs, ...children), clear(el)   ← the only DOM helper
-  ui/filelist.js MDP.ui.filelist → render(listEl, {files, cfg, query, currentPath, onOpen})
+  ui/filelist.js MDP.ui.filelist → render(listEl, {files, cfg, query, currentPath,
+                                  hidden, showHidden, onOpen, onToggleHide, onToggleShowHidden}).
+                                  Per-row ⊘ hide button filters a plan out of the list (view-only,
+                                  never deletes); hidden set is an app.js localStorage pref
+                                  (`mdp.hidden`/`mdp.showHidden`) keyed by path (or `ext:<label>`
+                                  for adhoc plans). A footer reveals/unhides (↺).
   ui/reader.js  MDP.ui.reader → paint(pane), mountPane(pane, app)   ← the big one (see below)
   ui/configtab.js MDP.ui.configtab → render(formEl, {cfg, onCancel, onSave})
   app.js        MDP.app      → boot, mode detection, panes, persistence orchestration
