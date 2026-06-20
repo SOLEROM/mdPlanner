@@ -1,0 +1,59 @@
+{
+  "rootPath": "/data/aproj/mdplaner",
+  "standaloneRoot": "../../plans",
+  "author": "me",
+  "fileGlob": "**/*.md",
+  "dateFormat": "YYYY-MM-DD",
+  "marker": {
+    "blockquotePrefix": "> ",
+    "iconOpen": "🔴",
+    "iconResolved": "⚪",
+    "replyPrefix": "↳ ",
+    "types": {
+      "question": "Q",
+      "remark": "R",
+      "wrong": "W",
+      "fix": "F"
+    },
+    "resolvedSuffix": ", resolved",
+    "headerTemplate": "**{type} ({author}{statusSuffix}):** "
+  },
+  "approval": {
+    "states": {
+      "approved": {
+        "icon": "✅",
+        "label": "APPROVED"
+      },
+      "changes-requested": {
+        "icon": "🟠",
+        "label": "CHANGES REQUESTED"
+      },
+      "pending": {
+        "icon": "⚪",
+        "label": "PENDING"
+      }
+    },
+    "template": "> {icon} **{label}** — {author} · {date}"
+  },
+  "render": {
+    "hideFrontmatter": true,
+    "syntaxHighlight": true,
+    "mermaid": true
+  },
+  "ui": {
+    "theme": "dark",
+    "fontScale": 1,
+    "remarkColor": "#e5484d",
+    "resolvedColor": "#8a8f98",
+    "typeColors": {
+      "question": "#3b82f6",
+      "remark": "#e5484d",
+      "wrong": "#f5a623",
+      "fix": "#30a46c"
+    }
+  },
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8787
+  }
+}

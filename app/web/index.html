@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>MD Planner</title>
+  <link rel="stylesheet" href="vendor/highlight-light.css" id="hljs-theme">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <button id="menuBtn" class="icon-btn" title="Toggle file list" aria-label="Toggle file list">☰</button>
+    <button id="splitBtn" class="icon-btn" title="Split view — compare two plans" aria-label="Split view" aria-pressed="false">⧉</button>
+    <button id="outlineBtn" class="icon-btn" title="Toggle outline" aria-label="Toggle outline" aria-pressed="true">📑</button>
+    <h1 class="brand">MD&nbsp;Planner</h1>
+    <span id="modeBadge" class="badge" title="Active mode">…</span>
+    <div class="spacer"></div>
+    <button id="fontDown" class="icon-btn" title="Smaller text" aria-label="Smaller text">A−</button>
+    <button id="fontUp" class="icon-btn" title="Larger text" aria-label="Larger text">A+</button>
+    <button id="refreshBtn" class="icon-btn" title="Reload &amp; re-render everything" aria-label="Reload">⟳</button>
+    <button id="themeBtn" class="icon-btn" title="Toggle theme" aria-label="Toggle theme">◐</button>
+    <button id="configBtn" class="icon-btn" title="Config" aria-label="Config">⚙</button>
+  </header>
+
+  <div class="layout">
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-tools">
+        <input id="search" class="search" type="search" placeholder="Search plans…" aria-label="Search plans">
+        <button id="openFileBtn" class="btn open-file" hidden>📂 Open a .md file…</button>
+        <input id="fileInput" type="file" accept=".md,.markdown,text/markdown" hidden>
+      </div>
+      <ul id="fileList" class="file-list" aria-label="Plan files"></ul>
+    </aside>
+
+    <nav id="outline" class="outline" hidden aria-label="Document outline"></nav>
+
+    <main class="main">
+      <!-- Reader view: one or two independently-scrolling panes injected here -->
+      <section id="readerView" class="view">
+        <div id="panes" class="panes"></div>
+      </section>
+
+      <!-- Config view -->
+      <section id="configView" class="view" hidden>
+        <div id="configForm"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <!-- vendored libs (offline, no CDN) -->
+  <script src="vendor/markdown-it.min.js"></script>
+  <script src="vendor/highlight.min.js"></script>
+  <!-- app modules (order matters: deps before dependents) -->
+  <script src="js/config.js"></script>
+  <script src="js/remarks.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/ui/dom.js"></script>
+  <script src="js/ui/filelist.js"></script>
+  <script src="js/ui/reader.js"></script>
+  <script src="js/ui/configtab.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

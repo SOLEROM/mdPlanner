@@ -1,0 +1,13 @@
+{
+  "name": "md-planner",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Lightweight dual-mode reviewer for Claude-Code markdown plan files.",
+  "scripts": {
+    "test": "node --test tests/js/*.test.js"
+  },
+  "devDependencies": {
+    "highlight.js": "^11.10.0",
+    "markdown-it": "^14.1.0"
+  }
+}

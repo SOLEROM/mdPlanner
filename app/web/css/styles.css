@@ -1,0 +1,335 @@
+/* MD Planner — styles. Light/dark via [data-theme] + prefers-color-scheme.
+   Behavioural colours (remark/resolved) come from config as CSS variables set
+   at runtime by app.js, so they are editable from the config tab. */
+
+:root {
+  --font-scale: 1;
+  --remark-color: #e5484d;
+  --resolved-color: #8a8f98;
+  --danger-color: #e5484d;   /* destructive actions — intentionally not config-driven */
+
+  /* Per-note-type accents (overridden at runtime from config.ui.typeColors). */
+  --type-question: #3b82f6;
+  --type-remark: #e5484d;
+  --type-wrong: #f5a623;
+  --type-fix: #30a46c;
+
+  --bg: #ffffff;
+  --bg-soft: #f6f7f9;
+  --bg-elev: #ffffff;
+  --fg: #1c2024;
+  --fg-soft: #60646c;
+  --border: #e1e3e6;
+  --accent: #3b82f6;
+  --good: #30a46c;
+  --warn: #f5a524;
+  --shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+}
+
+:root[data-theme="dark"],
+:root[data-theme="auto"] {
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] {
+    --bg: #15171a; --bg-soft: #1c1f23; --bg-elev: #212529; --fg: #ecedee;
+    --fg-soft: #9ba1a6; --border: #2b2f36; --shadow: 0 6px 24px rgba(0,0,0,0.5);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15171a; --bg-soft: #1c1f23; --bg-elev: #212529; --fg: #ecedee;
+  --fg-soft: #9ba1a6; --border: #2b2f36; --shadow: 0 6px 24px rgba(0,0,0,0.5);
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: calc(16px * var(--font-scale));
+  -webkit-text-size-adjust: 100%;
+  display: flex; flex-direction: column;
+}
+
+/* ---- top bar ---- */
+.topbar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 30;
+  padding-top: max(8px, env(safe-area-inset-top));
+}
+.brand { font-size: 1rem; margin: 0; font-weight: 700; letter-spacing: 0.2px; }
+.spacer { flex: 1; }
+.badge {
+  font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;
+  background: var(--bg-soft); color: var(--fg-soft); border: 1px solid var(--border);
+}
+.badge.server { color: var(--good); border-color: var(--good); }
+.badge.client { color: var(--accent); border-color: var(--accent); }
+.icon-btn {
+  border: 1px solid transparent; background: transparent; color: var(--fg);
+  font-size: 1rem; min-width: 40px; height: 40px; border-radius: 8px; cursor: pointer;
+}
+.icon-btn:hover { background: var(--bg-soft); }
+.icon-btn:active { transform: scale(0.96); }
+.icon-btn.active { background: var(--bg-soft); color: var(--accent); }
+#refreshBtn.spin { animation: spin 0.6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---- layout ---- */
+.layout { flex: 1; display: flex; min-height: 0; }
+.sidebar {
+  width: 320px; max-width: 80vw; flex-shrink: 0;
+  border-right: 1px solid var(--border); background: var(--bg-soft);
+  display: flex; flex-direction: column; min-height: 0;
+}
+.sidebar.collapsed { display: none; }
+.sidebar-tools { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.search {
+  width: 100%; padding: 9px 12px; border: 1px solid var(--border);
+  border-radius: 8px; background: var(--bg-elev); color: var(--fg); font-size: 0.9rem;
+}
+.file-list { list-style: none; margin: 0; padding: 0 6px 16px; overflow-y: auto; }
+.file-item {
+  display: flex; align-items: center; gap: 8px; padding: 9px 10px;
+  border-radius: 8px; cursor: pointer; border: 1px solid transparent;
+}
+.file-item:hover { background: var(--bg-elev); }
+.file-item.active { background: var(--bg-elev); border-color: var(--border); }
+/* On-demand (external) plans group: a small section label + a left accent so
+   files outside the root read as distinct from rooted plans. */
+.file-group {
+  list-style: none; padding: 10px 10px 4px; font-size: 0.68rem; font-weight: 700;
+  letter-spacing: 0.05em; text-transform: uppercase; color: var(--fg-soft);
+}
+.file-item.external { border-left: 2px solid var(--accent); }
+.file-item .fi-path { flex: 1; font-size: 0.86rem; word-break: break-word; }
+.file-item .fi-status { font-size: 0.95rem; }
+.file-item .fi-open {
+  font-size: 0.7rem; color: #fff; background: var(--remark-color);
+  border-radius: 999px; padding: 1px 7px; min-width: 20px; text-align: center;
+}
+.main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.view[hidden] { display: none; }
+
+/* ---- panes (one reader, or two side-by-side for compare) ---- */
+.panes { flex: 1; min-height: 0; display: flex; }
+.pane { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.pane + .pane { border-left: 1px solid var(--border); }
+.panes.split .pane.focused { box-shadow: inset 0 3px 0 -1px var(--accent); }
+/* per-pane chrome only matters while comparing */
+.panes:not(.split) .pane-close,
+.panes:not(.split) .pane-open,
+.panes:not(.split) .pane-file { display: none; }
+.pane-file {
+  font-size: 0.78rem; color: var(--fg-soft); max-width: 38%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pane-close { min-width: 32px; height: 32px; font-size: 0.85rem; }
+.outline[hidden], .remark-rail[hidden] { display: none; }
+
+/* ---- approval + triage bars ---- */
+.approval-bar {
+  margin: 0; padding: 10px 16px; font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+.approval-bar.approved { background: rgba(48,164,108,0.14); color: var(--good); }
+.approval-bar.changes-requested { background: rgba(245,165,36,0.16); color: #b7791f; }
+.approval-bar.pending { background: var(--bg-soft); color: var(--fg-soft); }
+.triage-bar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 8px 16px; border-bottom: 1px solid var(--border); background: var(--bg-elev);
+  flex: none;
+}
+.triage-bar .toggle { font-size: 0.85rem; color: var(--fg-soft); cursor: pointer; }
+.open-count { font-size: 0.82rem; color: var(--remark-color); font-weight: 600; }
+
+/* ---- buttons ---- */
+.btn {
+  border: 1px solid var(--border); background: var(--bg-elev); color: var(--fg);
+  padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;
+}
+.btn:hover { background: var(--bg-soft); }
+.btn.small { padding: 5px 10px; font-size: 0.8rem; }
+.btn.good { border-color: var(--good); color: var(--good); }
+.btn.warn { border-color: var(--warn); color: #b7791f; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+/* Use a fixed danger red (not --remark-color) so Delete stays alarming even
+   inside a per-type-tinted remark box, where --remark-color is rebound. */
+.btn.danger { border-color: var(--danger-color); color: var(--danger-color); }
+.btn.danger:hover { background: color-mix(in srgb, var(--danger-color) 12%, transparent); }
+.btn.open-file { width: 100%; }
+.confirm-text { font-size: 0.8rem; color: var(--fg-soft); align-self: center; margin-right: 2px; }
+
+/* ---- reader / markdown ---- */
+.reader-wrap { flex: 1; min-height: 0; display: flex; }
+.reader {
+  flex: 1 1 0; min-height: 0; overflow-y: auto;
+  padding: 20px 24px 24vh; max-width: 900px; margin: 0 auto; width: 100%; line-height: 1.6;
+}
+.empty-state { color: var(--fg-soft); text-align: center; margin-top: 18vh; }
+.markdown-body h1, .markdown-body h2, .markdown-body h3 { line-height: 1.25; margin: 1.4em 0 0.5em; }
+.markdown-body h1 { font-size: 1.7em; border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
+.markdown-body h2 { font-size: 1.35em; border-bottom: 1px solid var(--border); padding-bottom: 0.25em; }
+.markdown-body p, .markdown-body ul, .markdown-body ol { margin: 0.6em 0; }
+.markdown-body code { background: var(--bg-soft); padding: 0.15em 0.4em; border-radius: 4px; font-size: 0.9em; }
+.markdown-body pre { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; overflow-x: auto; }
+.markdown-body pre code { background: transparent; padding: 0; }
+.markdown-body table { border-collapse: collapse; width: 100%; display: block; overflow-x: auto; }
+.markdown-body th, .markdown-body td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
+.markdown-body blockquote { margin: 0.7em 0; padding: 0.4em 1em; border-left: 4px solid var(--border); color: var(--fg-soft); }
+.markdown-body a { color: var(--accent); }
+.markdown-body img { max-width: 100%; }
+.markdown-body pre.mermaid { background: transparent; border: none; text-align: center; }
+
+/* tappable blocks */
+.reader [data-line-end] { position: relative; border-radius: 6px; transition: background 0.12s; cursor: pointer; }
+.reader [data-line-end]:hover { background: rgba(59,130,246,0.06); }
+.reader [data-line-end].selected { background: rgba(59,130,246,0.12); outline: 1px dashed var(--accent); }
+
+/* ---- remark boxes (the whole point: notably red) ---- */
+.markdown-body blockquote.remark {
+  border-left: 4px solid var(--remark-color);
+  background: color-mix(in srgb, var(--remark-color) 9%, transparent);
+  color: var(--fg); border-radius: 6px; padding: 0.5em 1em; position: relative;
+}
+.markdown-body blockquote.remark strong:first-of-type { color: var(--remark-color); }
+/* Each note type rebinds the local --remark-color so the box border, tint and
+   header all pick up its hue. The .resolved rules below still win → neutral grey. */
+.markdown-body blockquote.remark.type-question { --remark-color: var(--type-question); }
+.markdown-body blockquote.remark.type-remark   { --remark-color: var(--type-remark); }
+.markdown-body blockquote.remark.type-wrong    { --remark-color: var(--type-wrong); }
+.markdown-body blockquote.remark.type-fix      { --remark-color: var(--type-fix); }
+.markdown-body blockquote.remark.resolved {
+  border-left-color: var(--resolved-color);
+  background: color-mix(in srgb, var(--resolved-color) 10%, transparent);
+  opacity: 0.72;
+}
+.markdown-body blockquote.remark.resolved strong:first-of-type { color: var(--resolved-color); }
+.markdown-body blockquote.approval { border-left-width: 5px; font-weight: 600; }
+.reader.show-open-only blockquote.remark.resolved { display: none; }
+
+.remark-actions {
+  display: flex; gap: 8px; margin-top: 6px; padding-top: 6px;
+  border-top: 1px dashed var(--border);
+}
+
+/* ---- inline composer ---- */
+.composer { margin: 8px 0; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-elev); box-shadow: var(--shadow); }
+.composer textarea { width: 100%; min-height: 72px; resize: vertical; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); font: inherit; }
+.composer .composer-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+.composer .composer-title { font-size: 0.8rem; color: var(--fg-soft); margin-bottom: 6px; }
+
+/* ---- inline "add a note here" bar (lives in the text flow, never floats) ---- */
+.block-actions {
+  display: inline-flex; gap: 6px; align-items: center; margin: 8px 0 4px;
+  padding: 5px 6px; background: var(--bg-elev); border: 1px solid var(--border);
+  border-radius: 10px; box-shadow: var(--shadow);
+}
+.block-actions-x {
+  border: 0; background: transparent; color: var(--fg-soft);
+  cursor: pointer; font-size: 0.85rem; line-height: 1; padding: 4px 6px; border-radius: 6px;
+}
+.block-actions-x:hover { background: var(--bg-soft); color: var(--fg); }
+/* Tint each add-note button to the colour of the note it creates. */
+.block-actions .btn.type-question { color: var(--type-question); border-color: var(--type-question); }
+.block-actions .btn.type-remark   { color: var(--type-remark);   border-color: var(--type-remark); }
+.block-actions .btn.type-wrong    { color: var(--type-wrong);    border-color: var(--type-wrong); }
+.block-actions .btn.type-fix      { color: var(--type-fix);      border-color: var(--type-fix); }
+.block-actions .btn.type-question:hover { background: color-mix(in srgb, var(--type-question) 14%, transparent); }
+.block-actions .btn.type-remark:hover   { background: color-mix(in srgb, var(--type-remark) 14%, transparent); }
+.block-actions .btn.type-wrong:hover    { background: color-mix(in srgb, var(--type-wrong) 14%, transparent); }
+.block-actions .btn.type-fix:hover       { background: color-mix(in srgb, var(--type-fix) 14%, transparent); }
+.reader [data-line-end].annot-target {
+  background: rgba(59,130,246,0.12); outline: 1px dashed var(--accent);
+}
+
+/* ---- config form ---- */
+#configForm { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 24px 24px; max-width: 760px; margin: 0 auto; width: 100%; }
+.cfg-section { margin-bottom: 22px; }
+.cfg-section h3 { margin: 0 0 10px; font-size: 1rem; }
+.cfg-field { display: flex; align-items: center; gap: 12px; padding: 6px 0; flex-wrap: wrap; }
+.cfg-field label { flex: 0 0 220px; max-width: 100%; color: var(--fg-soft); font-size: 0.88rem; }
+.cfg-field input[type="text"], .cfg-field input[type="number"], .cfg-field select {
+  flex: 1; min-width: 140px; padding: 7px 10px; border: 1px solid var(--border);
+  border-radius: 6px; background: var(--bg-elev); color: var(--fg); font: inherit;
+}
+/* Docked at the END of the form — no longer floats over the fields. */
+.cfg-actions { display: flex; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+.cfg-errors { color: var(--remark-color); font-size: 0.85rem; white-space: pre-line; margin: 8px 0; }
+
+/* ---- left outline (TOC) tree ---- */
+.outline {
+  flex: 0 0 248px; max-width: 30vw; min-height: 0; overflow-y: auto;
+  border-right: 1px solid var(--border); background: var(--bg-soft); padding: 10px 8px;
+}
+.outline-head { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.4px; color: var(--fg-soft); font-weight: 700; padding: 4px 8px 8px; }
+.outline-list { display: flex; flex-direction: column; }
+.outline-item {
+  display: flex; align-items: center; gap: 6px; width: 100%; text-align: left;
+  background: transparent; border: 0; border-left: 2px solid transparent;
+  color: var(--fg); cursor: pointer; padding: 5px 8px; font-size: 0.82rem; border-radius: 4px;
+}
+.outline-item:hover { background: var(--bg-elev); }
+.outline-item.active { background: var(--bg-elev); border-left-color: var(--accent); color: var(--accent); font-weight: 600; }
+.outline-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.outline-badge {
+  flex: none; font-size: 0.66rem; font-weight: 700; color: #fff; background: var(--remark-color);
+  border-radius: 999px; padding: 0 6px; min-width: 16px; text-align: center;
+}
+
+/* ---- right notes rail ---- */
+.remark-rail {
+  flex: 0 0 288px; max-width: 32vw; min-height: 0; overflow-y: auto;
+  border-left: 1px solid var(--border); background: var(--bg-soft); padding: 12px;
+}
+.rail-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+.rail-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.4px; color: var(--fg-soft); font-weight: 700; }
+.rail-count { font-size: 0.72rem; color: var(--remark-color); font-weight: 700; white-space: nowrap; }
+.rail-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rail-item {
+  display: flex; gap: 8px; align-items: flex-start; width: 100%; text-align: left;
+  padding: 8px 9px; border: 1px solid var(--border); border-left: 3px solid var(--remark-color);
+  border-radius: 8px; background: var(--bg-elev); cursor: pointer; color: var(--fg);
+}
+.rail-item.type-question { --remark-color: var(--type-question); }
+.rail-item.type-remark   { --remark-color: var(--type-remark); }
+.rail-item.type-wrong    { --remark-color: var(--type-wrong); }
+.rail-item.type-fix      { --remark-color: var(--type-fix); }
+.rail-item:hover { background: var(--bg-soft); }
+.rail-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.rail-item.resolved { border-left-color: var(--resolved-color); opacity: 0.6; }
+/* CSS-drawn status dot. Inherits the per-type --remark-color rebound on .rail-item
+   above, so a Question reads blue, Remark red, Wrong amber, Fix green — matching the
+   left bar and the add-note buttons. (An emoji 🔴 can't be recoloured by type.) */
+.rail-dot { flex: none; width: 9px; height: 9px; margin-top: 4px; border-radius: 50%; background: var(--remark-color); }
+.rail-item.resolved .rail-dot { background: transparent; box-shadow: inset 0 0 0 1.5px var(--resolved-color); }
+.rail-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rail-meta { font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; color: var(--fg-soft); }
+.rail-snippet {
+  font-size: 0.8rem; line-height: 1.35; word-break: break-word;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.remark-rail.show-open-only .rail-item.resolved { display: none; }
+
+/* The desktop nav rails need room — hide them on smaller viewports. */
+@media (max-width: 1080px) { .outline, .remark-rail { display: none; } }
+
+/* ---- toast ---- */
+.toast {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+  background: var(--fg); color: var(--bg); padding: 10px 18px; border-radius: 999px;
+  box-shadow: var(--shadow); z-index: 60; font-size: 0.88rem; max-width: 90vw;
+}
+.toast.error { background: var(--remark-color); color: #fff; }
+
+/* ---- small screens (phone/tablet) ---- */
+@media (max-width: 720px) {
+  .sidebar { position: fixed; inset: 49px 0 0 0; width: 100%; max-width: 100%; z-index: 25; }
+  .reader { padding: 16px 16px 24vh; }
+  /* if split is on, stack the two panes so each still scrolls on its own */
+  .panes.split { flex-direction: column; }
+  .panes.split .pane + .pane { border-left: 0; border-top: 1px solid var(--border); }
+}
