@@ -27,15 +27,57 @@
     scope.querySelectorAll('.composer').forEach(function (c) { c.remove(); });
   }
 
-  function makeComposer(title, placeholder, onSubmit) {
+  // Append a predefined bank line to the textarea (stacking on its own line so
+  // several common notes can be combined), then keep the caret in the textarea.
+  function insertNote(ta, line) {
+    const cur = ta.value;
+    ta.value = !cur ? line : (cur.endsWith('\n') ? cur + line : cur + '\n' + line);
+    ta.focus();
+  }
+
+  // "＋ Common note ▾" — a button + dropdown of the type's predefined lines.
+  // Returned only when the bank is non-empty; picking a line inserts it above.
+  function makeBankPicker(ta, notes) {
+    const menu = h('div', { class: 'composer-bank-menu', hidden: true });
+    const wrap = h('div', { class: 'composer-bank' });
+    function close() {
+      menu.hidden = true;
+      btn.classList.remove('open');
+      document.removeEventListener('mousedown', onDoc, true);
+    }
+    function open() {
+      menu.hidden = false;
+      btn.classList.add('open');
+      document.addEventListener('mousedown', onDoc, true);
+    }
+    function onDoc(e) { if (!wrap.contains(e.target)) close(); }
+    const btn = h('button', { class: 'btn small composer-bank-btn', onclick: function (e) {
+      e.stopPropagation();
+      if (menu.hidden) open(); else close();
+    } }, '＋ Common note ▾');
+    notes.forEach(function (line) {
+      menu.appendChild(h('button', { class: 'composer-bank-item', title: line, onclick: function (e) {
+        e.stopPropagation();
+        insertNote(ta, line);
+        close();
+      } }, line));
+    });
+    wrap.appendChild(btn);
+    wrap.appendChild(menu);
+    return wrap;
+  }
+
+  function makeComposer(title, placeholder, onSubmit, bankNotes) {
     const ta = h('textarea', { placeholder: placeholder || 'Type here…', 'aria-label': title });
     const submit = function () {
       const v = ta.value.trim();
       if (!v) { ta.focus(); return; }
       onSubmit(v);
     };
+    const head = h('div', { class: 'composer-head' }, h('div', { class: 'composer-title' }, title));
+    if (bankNotes && bankNotes.length) head.appendChild(makeBankPicker(ta, bankNotes));
     const box = h('div', { class: 'composer' },
-      h('div', { class: 'composer-title' }, title),
+      head,
       ta,
       h('div', { class: 'composer-row' },
         h('button', { class: 'btn small', onclick: function () { box.remove(); } }, 'Cancel'),
@@ -155,8 +197,9 @@
 
     function start(meta) {
       clearBlockActions(reader);
+      const bank = (ctx.cfg.noteBank && ctx.cfg.noteBank[meta.type]) || [];
       const composer = makeComposer(meta.title, meta.ph,
-        function (body) { ctx.handlers.addRemark(lastLineIdx, meta.type, body); });
+        function (body) { ctx.handlers.addRemark(lastLineIdx, meta.type, body); }, bank);
       block.insertAdjacentElement('afterend', composer);
     }
 

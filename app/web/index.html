@@ -25,12 +25,14 @@
 
   <div class="layout">
     <aside id="sidebar" class="sidebar">
-      <div class="sidebar-tools">
+      <div id="sidebarTools" class="sidebar-tools">
         <input id="search" class="search" type="search" placeholder="Search plans…" aria-label="Search plans">
         <button id="openFileBtn" class="btn open-file" hidden>📂 Open a .md file…</button>
         <input id="fileInput" type="file" accept=".md,.markdown,text/markdown" hidden>
       </div>
       <ul id="fileList" class="file-list" aria-label="Plan files"></ul>
+      <!-- Config view: the plan tree above is hidden and this page tree shown instead -->
+      <nav id="configNav" class="config-nav" hidden aria-label="Config pages"></nav>
     </aside>
 
     <nav id="outline" class="outline" hidden aria-label="Document outline"></nav>

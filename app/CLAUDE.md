@@ -40,8 +40,9 @@ git-ignored — `web/` is the single source of truth. Vendored `markdown-it` +
 python3 server.py /some/root    # serve a specific markdown root
 
 npm install                     # dev only: installs markdown-it + highlight.js
-npm test                        # 50 JS unit tests (node --test, no jsdom needed for these)
-python3 -m pytest tests/py/     # 37 server / path-safety / adhoc / counter tests
+npm test                        # 58 JS unit tests (node --test; configtab.test.js drives the
+                                #   real UMD module through a tiny vm fake-DOM — no jsdom dep)
+python3 -m pytest tests/py/     # 44 server / path-safety / adhoc / counter tests
 node --check web/js/<file>.js   # quick parse check after editing a module
 ```
 
@@ -62,7 +63,9 @@ Every `web/js` module is a **UMD IIFE**: it attaches to `window.MDP.*` in the br
 ```
 web/js/
   config.js     MDP.config   → { DEFAULT_CONFIG, mergeConfig, deepMerge, clone,
-                                  validateConfig, renderHeader, isPlainObject }
+                                  validateConfig, renderHeader, isPlainObject }.
+                                DEFAULT_CONFIG.noteBank = { <type>: [predefined lines] } — a
+                                per-type bank of "common note" strings (UI content, no grammar).
   remarks.js    MDP.remarks  → parse / build / splice / mutate, PURE TEXT IN→OUT:
                                 parseRemarks, countOpen, buildRemark, addRemarkAfterLine,
                                 toggleResolved, addReply, removeRemark, findApproval,
@@ -83,8 +86,15 @@ web/js/
                                   never deletes); hidden set is an app.js localStorage pref
                                   (`mdp.hidden`/`mdp.showHidden`) keyed by path (or `ext:<label>`
                                   for adhoc plans). A footer reveals/unhides (↺).
-  ui/reader.js  MDP.ui.reader → paint(pane), mountPane(pane, app)   ← the big one (see below)
-  ui/configtab.js MDP.ui.configtab → render(formEl, {cfg, onCancel, onSave})
+  ui/reader.js  MDP.ui.reader → paint(pane), mountPane(pane, app)   ← the big one (see below).
+                                Tapping a block + ＋type opens a composer; when cfg.noteBank[type]
+                                is non-empty it shows a "＋ Common note ▾" dropdown that appends a
+                                predefined line into the new note body.
+  ui/configtab.js MDP.ui.configtab → render(formEl, navEl, {cfg, onCancel, onSave}). A *paged*
+                                form: navEl (the sidebar #configNav tree) lists General + one page
+                                per marker.types key; the General page holds shared config, each
+                                type page its label token + colour + note-bank editor (add / edit /
+                                ▲▼ reorder / delete). One draft survives page switches; Save validates it.
   app.js        MDP.app      → boot, mode detection, panes, persistence orchestration
 ```
 
@@ -176,14 +186,18 @@ If you change the line-map logic, re-check all three.
   to `marker.types` (config.js **and** mdmarks.py) and a colour to `ui.typeColors`; the
   pure `buildRemark`/`parseRemarks` pick it up for free (they iterate `marker.types`). Then:
   a `--type-<key>` var + a `.remark.type-<key>`/`.rail-item.type-<key>`/`.block-actions .btn.type-<key>`
-  rule in `styles.css`, an `app.js` `setProperty('--type-<key>', …)`, a `reader.js`
-  `ANNOT_TYPES` entry (the annotate button), and form rows in `configtab.js`. Keep the
-  type **labels unique** — the parser maps label→type (validated in `validateConfig`).
+  rule in `styles.css`, an `app.js` `setProperty('--type-<key>', …)`, and a `reader.js`
+  `ANNOT_TYPES` entry (the annotate button). `configtab.js` builds the type's settings page +
+  note-bank editor automatically from `marker.types`; only its title needs a `TYPE_TITLES`
+  entry (else it falls back to the capitalised key). Give the type a `noteBank.<key>` array in
+  both `DEFAULT_CONFIG`s (or it starts empty). Keep the type **labels unique** — the parser
+  maps label→type (validated in `validateConfig`).
 - **Add a top-bar control** → button in `index.html` topbar (give it an id), grab it in
   `app.js` `grab()`, wire in `wireControls()`. Persist UI prefs to `localStorage`
   (`mdp.*`) like `toggleOutline` does.
 - **Add a config field** → `DEFAULT_CONFIG` in `config.js` (+ `validateConfig`), the
-  Python default in `mdmarks.py`, a form row in `ui/configtab.js`. It round-trips through
+  Python default in `mdmarks.py`, and a row in `ui/configtab.js` (`GENERAL_FIELDS` for a
+  shared knob, or a per-type page's `fields`). It round-trips through
   `<root>/.mdplanner/config.json` (server) or `localStorage` (client).
 - **Change persistence** → only `storage.js` adapters + `server.py`. Nothing else should
   know whether it's REST or a file picker.

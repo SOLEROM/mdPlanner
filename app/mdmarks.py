@@ -31,6 +31,30 @@ DEFAULT_CONFIG = {
         "resolvedSuffix": ", resolved",
         "headerTemplate": "**{type} ({author}{statusSuffix}):** ",
     },
+    # Per-type bank of predefined note lines (UI content only; no grammar). Mirrors
+    # web/js/config.js so the server's merge_config supplies a default in Mode 1.
+    "noteBank": {
+        "question": [
+            "Why this approach over the alternatives?",
+            "What happens in the edge/error case here?",
+            "Is this assumption verified?",
+        ],
+        "remark": [
+            "Consider extracting this into its own step.",
+            "Worth a note for future readers.",
+            "Naming could be clearer here.",
+        ],
+        "wrong": [
+            "This contradicts an earlier section.",
+            "This assumption doesn’t hold.",
+            "Incorrect — see the requirement above.",
+        ],
+        "fix": [
+            "Rename for clarity.",
+            "Add error handling for this case.",
+            "Split this into smaller steps.",
+        ],
+    },
     "approval": {
         "states": {
             "approved": {"icon": "✅", "label": "APPROVED"},

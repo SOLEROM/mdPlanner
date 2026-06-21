@@ -240,7 +240,27 @@ body {
 .composer { margin: 8px 0; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-elev); box-shadow: var(--shadow); }
 .composer textarea { width: 100%; min-height: 72px; resize: vertical; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); font: inherit; }
 .composer .composer-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
-.composer .composer-title { font-size: 0.8rem; color: var(--fg-soft); margin-bottom: 6px; }
+.composer .composer-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.composer .composer-title { font-size: 0.8rem; color: var(--fg-soft); }
+
+/* "＋ Common note ▾" picker — a button with a drop-down of predefined lines. */
+.composer-bank { position: relative; flex: none; }
+.composer-bank-btn { white-space: nowrap; }
+.composer-bank-btn.open { background: var(--bg-soft); }
+.composer-bank-menu {
+  position: absolute; top: calc(100% + 4px); right: 0; z-index: 30;
+  min-width: 220px; max-width: 320px; max-height: 260px; overflow-y: auto;
+  padding: 4px; background: var(--bg-elev); border: 1px solid var(--border);
+  border-radius: 10px; box-shadow: var(--shadow);
+}
+.composer-bank-menu[hidden] { display: none; }
+.composer-bank-item {
+  display: block; width: 100%; text-align: left; border: 0; background: transparent;
+  color: var(--fg); cursor: pointer; font: inherit; font-size: 0.82rem; line-height: 1.35;
+  padding: 6px 8px; border-radius: 6px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.composer-bank-item:hover, .composer-bank-item:focus-visible { background: var(--bg-soft); }
 
 /* ---- inline "add a note here" bar (lives in the text flow, never floats) ---- */
 .block-actions {
@@ -283,6 +303,40 @@ body {
 /* Docked at the END of the form — no longer floats over the fields. */
 .cfg-actions { display: flex; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
 .cfg-errors { color: var(--remark-color); font-size: 0.85rem; white-space: pre-line; margin: 8px 0; }
+.cfg-page-title { margin: 0 0 18px; font-size: 1.2rem; }
+/* Block-level hint (not aligned under an input column) — used by the bank editor. */
+.cfg-hint.cfg-hint-block { margin-left: 0; margin-bottom: 10px; display: block; }
+
+/* ---- per-type note bank editor ---- */
+.bank-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.bank-row { display: flex; align-items: center; gap: 6px; }
+.bank-row input[type="text"] {
+  flex: 1; min-width: 120px; padding: 7px 10px; border: 1px solid var(--border);
+  border-radius: 6px; background: var(--bg-elev); color: var(--fg); font: inherit;
+}
+.bank-row .bank-move, .bank-row .bank-del { flex: none; width: 32px; height: 32px; font-size: 0.85rem; }
+.bank-row .bank-move[disabled] { opacity: 0.35; cursor: default; }
+.bank-row .bank-del { color: var(--danger-color); }
+.bank-row .bank-del:hover { background: color-mix(in srgb, var(--danger-color) 12%, transparent); }
+.bank-empty { color: var(--fg-soft); font-size: 0.84rem; padding: 4px 0; }
+.bank-add { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.bank-add input[type="text"] {
+  flex: 1; min-width: 120px; padding: 7px 10px; border: 1px dashed var(--border);
+  border-radius: 6px; background: var(--bg-elev); color: var(--fg); font: inherit;
+}
+
+/* ---- config page tree (replaces the plan list in the sidebar while config is open) ---- */
+.config-nav[hidden] { display: none; }
+.config-nav { padding: 6px; overflow-y: auto; }
+.config-nav-head { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.4px;
+  color: var(--fg-soft); font-weight: 700; padding: 6px 8px 8px; }
+.config-nav-item {
+  display: block; width: 100%; text-align: left; border: 0; border-left: 2px solid transparent;
+  background: transparent; color: var(--fg); cursor: pointer; font: inherit; font-size: 0.9rem;
+  padding: 8px 10px; border-radius: 6px;
+}
+.config-nav-item:hover { background: var(--bg-elev); }
+.config-nav-item.active { background: var(--bg-elev); border-left-color: var(--accent); color: var(--accent); font-weight: 600; }
 
 /* ---- left outline (TOC) tree ---- */
 .outline {

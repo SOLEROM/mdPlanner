@@ -52,6 +52,31 @@ test('validateConfig rejects duplicate type labels and bad type colours', () => 
   assert.ok(r2.errors.some(e => e.includes('typeColors')));
 });
 
+test('default noteBank carries a seeded array of strings for each type', () => {
+  const cfg = config.mergeConfig({});
+  ['question', 'remark', 'wrong', 'fix'].forEach((tk) => {
+    assert.ok(Array.isArray(cfg.noteBank[tk]), `noteBank.${tk} is an array`);
+    assert.ok(cfg.noteBank[tk].length > 0, `noteBank.${tk} is seeded`);
+    assert.ok(cfg.noteBank[tk].every((s) => typeof s === 'string'), `noteBank.${tk} is all strings`);
+  });
+  assert.equal(config.validateConfig(cfg).valid, true);
+});
+
+test('mergeConfig replaces a noteBank type wholesale (no array append)', () => {
+  const merged = config.mergeConfig({ noteBank: { question: ['only one'] } });
+  assert.deepEqual(merged.noteBank.question, ['only one']);   // overridden, not appended
+  assert.ok(merged.noteBank.remark.length > 0);               // other types keep defaults
+});
+
+test('validateConfig rejects a malformed noteBank', () => {
+  const notArray = config.validateConfig(config.mergeConfig({ noteBank: { fix: 'nope' } }));
+  assert.equal(notArray.valid, false);
+  assert.ok(notArray.errors.some(e => e.includes('noteBank.fix')));
+  const notStrings = config.validateConfig(config.mergeConfig({ noteBank: { wrong: ['ok', 7] } }));
+  assert.equal(notStrings.valid, false);
+  assert.ok(notStrings.errors.some(e => e.includes('noteBank.wrong')));
+});
+
 test('per-mode roots: server rootPath + standaloneRoot defaults and validation', () => {
   const cfg = config.mergeConfig({});
   assert.equal(cfg.rootPath, 'plans');                    // server (Mode 1): defaults to the project's plans/

@@ -219,6 +219,11 @@ The header badge shows **📱 Standalone**. You can read and annotate fully. Sav
   > 🔴 **W (me):** this date is off by a year
   > 🔴 **F (me):** use 2026 instead
   ```
+
+  Each note type has a **bank of predefined "common notes"** you maintain in the config
+  pages. When you start a note, the composer shows a **＋ Common note ▾** button — pick a
+  line and it's appended into the body (stack several, then edit freely). Saves typing the
+  same review remarks over and over.
 - **Resolve / reply / delete** — tap a remark box → **Resolve** (icon flips to ⚪, the box
   dims), **Reply** (adds a threaded `> ↳ **me:** …` line), or **Delete** (asks to confirm,
   then removes the whole note — header, body and replies — leaving no trace in the file).
@@ -262,10 +267,17 @@ phones/tablets so the mobile view stays focused on reading):
 
 ## Configuration (the ⚙ tab)
 
-Press **⚙** to edit settings live — author label, the **two roots** (**Server root** for
-Mode 1 and **Standalone root** for Mode 2 — each run mode uses its own), the marker
-**icons / prefixes / labels / header template**, the **per-type colours** (question /
-remark / wrong / fix), theme, font scale, rendering toggles, and the server host/port.
+Press **⚙** to edit settings live. The left sidebar swaps the plan list for a **page tree** —
+**General**, then one page per note type (**Questions · Remarks · Wrong · Fix**):
+
+- **General** holds everything shared: author label, the **two roots** (**Server root** for
+  Mode 1 and **Standalone root** for Mode 2 — each run mode uses its own), the marker
+  **icons / prefixes / header template**, theme, font scale, rendering toggles, and the
+  server host/port.
+- **Each type page** holds that label's own **token** (e.g. `Q`) and **colour**, plus its
+  **note bank** — the predefined "common note" lines for the composer dropdown. Add, edit,
+  reorder (▲▼) or delete them; they save with the form.
+
 **Save & apply** re-renders immediately; no source edit, ever.
 
 Settings are stored in one synced file:
@@ -298,6 +310,10 @@ Key defaults (see `web/js/config.js` / `mdmarks.py` for the full schema):
     "theme": "auto", "remarkColor": "#e5484d",
     "typeColors": { "question": "#3b82f6", "remark": "#e5484d", "wrong": "#f5a623", "fix": "#30a46c" }
   },
+  "noteBank": {                            // predefined "common note" lines per type (composer dropdown)
+    "question": ["Why this approach over the alternatives?", "…"],
+    "remark": ["…"], "wrong": ["…"], "fix": ["…"]
+  },
   "server": { "host": "0.0.0.0", "port": 8787 }
 }
 ```
@@ -328,10 +344,10 @@ Key defaults (see `web/js/config.js` / `mdmarks.py` for the full schema):
 ```bash
 # JS unit tests (Node's built-in runner; installs markdown-it + highlight.js as devDeps)
 npm install
-npm test                      # 50 tests: remarks, render, config, storage, rail
+npm test                      # 58 tests: remarks, render, config, configtab, storage, rail
 
 # Python tests (server API + path-safety + the remark counter)
-python3 -m pytest tests/py/   # 37 tests
+python3 -m pytest tests/py/   # 44 tests
 ```
 
 ### Layout

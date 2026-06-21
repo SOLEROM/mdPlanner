@@ -120,6 +120,19 @@ def test_merge_config_is_deep_and_immutable():
     assert mdmarks.DEFAULT_CONFIG["author"] == "me"  # untouched
 
 
+def test_default_config_carries_seeded_note_bank():
+    bank = mdmarks.DEFAULT_CONFIG["noteBank"]
+    for tk in ("question", "remark", "wrong", "fix"):
+        assert isinstance(bank[tk], list) and bank[tk]
+        assert all(isinstance(s, str) for s in bank[tk])
+
+
+def test_merge_config_replaces_note_bank_type_wholesale():
+    merged = mdmarks.merge_config({"noteBank": {"question": ["only one"]}})
+    assert merged["noteBank"]["question"] == ["only one"]   # overridden, not appended
+    assert merged["noteBank"]["remark"]                     # other types keep defaults
+
+
 def test_safe_join_accepts_inside_paths(tmp_path):
     root = str(tmp_path)
     target = mdmarks.safe_join(root, "sub/plan.md")

@@ -34,6 +34,34 @@
       headerTemplate: '**{type} ({author}{statusSuffix}):** '
     },
 
+    // Per-type bank of predefined note lines. Pure content — the composer's
+    // "Common note" dropdown appends a picked line into the new remark body; it
+    // never affects parsing. Keyed by the same keys as marker.types, so a new
+    // type added there gets an (empty) bank for free. Editable in the config
+    // pages (add / edit / reorder / delete). See PLAN.md §5.
+    noteBank: {
+      question: [
+        'Why this approach over the alternatives?',
+        'What happens in the edge/error case here?',
+        'Is this assumption verified?'
+      ],
+      remark: [
+        'Consider extracting this into its own step.',
+        'Worth a note for future readers.',
+        'Naming could be clearer here.'
+      ],
+      wrong: [
+        'This contradicts an earlier section.',
+        'This assumption doesn’t hold.',
+        'Incorrect — see the requirement above.'
+      ],
+      fix: [
+        'Rename for clarity.',
+        'Add error handling for this case.',
+        'Split this into smaller steps.'
+      ]
+    },
+
     approval: {
       states: {
         approved: { icon: '✅', label: 'APPROVED' },
@@ -115,6 +143,21 @@
       }
       req(typeof m.headerTemplate === 'string' && m.headerTemplate.indexOf('{type}') !== -1,
         'marker.headerTemplate must contain {type}');
+    }
+
+    // noteBank is optional; when present each value must be an array of strings.
+    if (cfg.noteBank !== undefined) {
+      req(isPlainObject(cfg.noteBank), 'noteBank must be an object');
+      if (isPlainObject(cfg.noteBank)) {
+        for (const tk of Object.keys(cfg.noteBank)) {
+          const arr = cfg.noteBank[tk];
+          req(Array.isArray(arr), `noteBank.${tk} must be an array`);
+          if (Array.isArray(arr)) {
+            req(arr.every(function (s) { return typeof s === 'string'; }),
+              `noteBank.${tk} must contain only strings`);
+          }
+        }
+      }
     }
 
     const a = cfg.approval;

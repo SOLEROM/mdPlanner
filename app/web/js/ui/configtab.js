@@ -1,10 +1,17 @@
-/* configtab.js — a form over the config file. Save writes it (server or
+/* configtab.js — a paged form over the config file. Save writes it (server or
    localStorage) and the app re-parses/re-renders live. Every behavioural token is
-   editable here, so nothing needs a source change. See PLAN.md §5. */
+   editable here, so nothing needs a source change. See PLAN.md §5.
+
+   The form is split into pages shown one at a time, navigated from a tree in the
+   sidebar (rendered into navEl): a General page for all shared config, plus one
+   page per note type (Question / Remark / Wrong / Fix) carrying that type's label
+   token, accent colour, and its bank of predefined "common note" lines. Edits are
+   held in a single draft that survives page switches; Save validates + persists it. */
 (function (root) {
   'use strict';
   const dom = root.MDP.ui.dom;
   const h = dom.h;
+  const clear = dom.clear;
   const cfgMod = root.MDP.config;
 
   function getPath(obj, path) {
@@ -19,12 +26,14 @@
     return copy;
   }
 
-  // Field schema — the knobs we surface (others remain editable via the JSON file).
-  const FIELDS = [
+  // The General page — all config that isn't tied to a single note type. The
+  // per-type label tokens (marker.types.*) and colours (ui.typeColors.*) live on
+  // their own pages instead, alongside that type's note bank.
+  const GENERAL_FIELDS = [
     { section: 'General' },
     { path: 'author', label: 'Author label', type: 'text' },
     { path: 'rootPath', label: 'Server root (Mode 1)', type: 'text',
-      hint: 'Folder to list — a full path, or relative to the project. Restart the server to apply.' },
+      hint: 'Folder to list (relative to the project, e.g. "plans"). Restart the server to apply.' },
     { path: 'standaloneRoot', label: 'Standalone root (Mode 2)', type: 'text' },
 
     { section: 'Remark markers' },
@@ -32,10 +41,6 @@
     { path: 'marker.iconResolved', label: 'Resolved icon', type: 'text' },
     { path: 'marker.blockquotePrefix', label: 'Blockquote prefix', type: 'text' },
     { path: 'marker.replyPrefix', label: 'Reply prefix', type: 'text' },
-    { path: 'marker.types.question', label: 'Question label', type: 'text' },
-    { path: 'marker.types.remark', label: 'Remark label', type: 'text' },
-    { path: 'marker.types.wrong', label: 'Wrong label', type: 'text' },
-    { path: 'marker.types.fix', label: 'Fix label', type: 'text' },
     { path: 'marker.resolvedSuffix', label: 'Resolved suffix', type: 'text' },
     { path: 'marker.headerTemplate', label: 'Header template', type: 'text' },
 
@@ -44,10 +49,6 @@
     { path: 'ui.fontScale', label: 'Font scale', type: 'number', step: '0.1', min: '0.6', max: '3' },
     { path: 'ui.remarkColor', label: 'Accent colour', type: 'color' },
     { path: 'ui.resolvedColor', label: 'Resolved colour', type: 'color' },
-    { path: 'ui.typeColors.question', label: 'Question colour', type: 'color' },
-    { path: 'ui.typeColors.remark', label: 'Remark colour', type: 'color' },
-    { path: 'ui.typeColors.wrong', label: 'Wrong colour', type: 'color' },
-    { path: 'ui.typeColors.fix', label: 'Fix colour', type: 'color' },
 
     { section: 'Rendering' },
     { path: 'render.hideFrontmatter', label: 'Hide frontmatter', type: 'checkbox' },
@@ -59,19 +60,42 @@
     { path: 'server.port', label: 'Port', type: 'number', step: '1', min: '1', max: '65535' }
   ];
 
-  // render(formEl, { cfg, onSave(cfg), onCancel() })
-  function render(formEl, opts) {
-    dom.clear(formEl);
-    const inputs = {};
-    let section = null;
+  // Friendly page titles for the known types; any new type falls back to its
+  // capitalised key so it still gets a page (and bank) for free.
+  const TYPE_TITLES = { question: 'Questions', remark: 'Remarks', wrong: 'Wrong', fix: 'Fix' };
+  function typeTitle(type) {
+    return TYPE_TITLES[type] || (type.charAt(0).toUpperCase() + type.slice(1));
+  }
 
-    FIELDS.forEach(function (f) {
-      if (f.section) {
-        section = h('div', { class: 'cfg-section' }, h('h3', {}, f.section));
-        formEl.appendChild(section);
-        return;
-      }
-      const value = getPath(opts.cfg, f.path);
+  // render(formEl, navEl, { cfg, onSave(cfg), onCancel() })
+  function render(formEl, navEl, opts) {
+    let draft = cfgMod.clone(opts.cfg);   // single working copy; survives page switches
+    let inputs = {};                      // simple-field inputs of the visible page
+    let current = null;
+
+    const types = (draft.marker && draft.marker.types) || {};
+    const pages = [{ id: 'general', title: 'General', fields: GENERAL_FIELDS }].concat(
+      Object.keys(types).map(function (type) {
+        return {
+          id: 'type:' + type, type: type, title: typeTitle(type),
+          fields: [
+            { path: 'marker.types.' + type, label: 'Label token', type: 'text',
+              hint: 'Short tag shown in the note header (e.g. Q). Must be unique across types.' },
+            { path: 'ui.typeColors.' + type, label: 'Accent colour', type: 'color' }
+          ]
+        };
+      })
+    );
+
+    const errorBox = h('div', { class: 'cfg-errors', hidden: true });
+    const actions = h('div', { class: 'cfg-actions' },
+      h('button', { class: 'btn primary', onclick: save }, 'Save & apply'),
+      h('button', { class: 'btn', onclick: function () { opts.onCancel(); } }, 'Close')
+    );
+
+    // ---- field rows ----------------------------------------------------------
+    function buildFieldRow(f) {
+      const value = getPath(draft, f.path);
       let input;
       if (f.type === 'checkbox') {
         input = h('input', { type: 'checkbox' });
@@ -91,40 +115,152 @@
       inputs[f.path] = { input: input, type: f.type };
       const field = h('div', { class: 'cfg-field' }, h('label', {}, f.label), input);
       if (f.hint) field.appendChild(h('small', { class: 'cfg-hint' }, f.hint));
-      section.appendChild(field);
-    });
+      return field;
+    }
 
-    const errorBox = h('div', { class: 'cfg-errors', hidden: true });
+    function renderFields(container, fields) {
+      let section = null;
+      fields.forEach(function (f) {
+        if (f.section) {
+          section = h('div', { class: 'cfg-section' }, h('h3', {}, f.section));
+          container.appendChild(section);
+          return;
+        }
+        (section || container).appendChild(buildFieldRow(f));
+      });
+    }
 
-    function collect() {
-      let next = cfgMod.clone(opts.cfg);
+    // Read the visible page's simple-field inputs back into the draft. Bank edits
+    // write through immediately, so they're already in the draft.
+    function collectCurrentPage() {
       Object.keys(inputs).forEach(function (path) {
         const spec = inputs[path];
         let v;
         if (spec.type === 'checkbox') v = spec.input.checked;
         else if (spec.type === 'number') v = parseFloat(spec.input.value);
         else v = spec.input.value;
-        next = setPath(next, path, v);
+        draft = setPath(draft, path, v);
       });
-      return next;
     }
 
-    const saveBtn = h('button', { class: 'btn primary', onclick: function () {
-      const next = collect();
-      const check = cfgMod.validateConfig(next);
+    // ---- per-type note bank editor ------------------------------------------
+    function bankArr(type) {
+      const arr = draft.noteBank && draft.noteBank[type];
+      return Array.isArray(arr) ? arr : [];
+    }
+    function setBank(type, arr) { draft = setPath(draft, 'noteBank.' + type, arr); }
+
+    function renderBankList(listEl, type) {
+      clear(listEl);
+      const arr = bankArr(type);
+      if (!arr.length) {
+        listEl.appendChild(h('div', { class: 'bank-empty' }, 'No common notes yet — add one below.'));
+        return;
+      }
+      arr.forEach(function (line, i) {
+        const input = h('input', { type: 'text', value: line, 'aria-label': 'Common note ' + (i + 1) });
+        input.addEventListener('input', function () {
+          const next = bankArr(type).slice();
+          next[i] = input.value;
+          setBank(type, next);
+        });
+        function move(dir) {
+          const next = bankArr(type).slice();
+          const j = i + dir;
+          if (j < 0 || j >= next.length) return;
+          const tmp = next[i]; next[i] = next[j]; next[j] = tmp;
+          setBank(type, next);
+          renderBankList(listEl, type);
+        }
+        const row = h('div', { class: 'bank-row' },
+          input,
+          h('button', { class: 'icon-btn bank-move', title: 'Move up', disabled: i === 0,
+            onclick: function () { move(-1); } }, '▲'),
+          h('button', { class: 'icon-btn bank-move', title: 'Move down', disabled: i === arr.length - 1,
+            onclick: function () { move(1); } }, '▼'),
+          h('button', { class: 'icon-btn danger bank-del', title: 'Delete', onclick: function () {
+            const next = bankArr(type).slice();
+            next.splice(i, 1);
+            setBank(type, next);
+            renderBankList(listEl, type);
+          } }, '✕')
+        );
+        listEl.appendChild(row);
+      });
+    }
+
+    function renderBankEditor(container, type) {
+      const section = h('div', { class: 'cfg-section' }, h('h3', {}, 'Common notes'));
+      section.appendChild(h('small', { class: 'cfg-hint cfg-hint-block' },
+        'Predefined lines for the “＋ Common note” dropdown when adding a ' +
+        typeTitle(type).replace(/s$/, '').toLowerCase() + ' note. Reorder, edit or delete; ' +
+        'changes are saved with the form.'));
+      const listEl = h('div', { class: 'bank-list' });
+      section.appendChild(listEl);
+      renderBankList(listEl, type);
+
+      const addInput = h('input', { type: 'text', placeholder: 'Add a common note…',
+        'aria-label': 'New common note' });
+      const addBtn = h('button', { class: 'btn small', onclick: function () {
+        const v = addInput.value.trim();
+        if (!v) { addInput.focus(); return; }
+        setBank(type, bankArr(type).concat([v]));
+        addInput.value = '';
+        renderBankList(listEl, type);
+        addInput.focus();
+      } }, '＋ Add');
+      addInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); addBtn.click(); }
+      });
+      section.appendChild(h('div', { class: 'bank-add' }, addInput, addBtn));
+      container.appendChild(section);
+    }
+
+    // ---- pages ---------------------------------------------------------------
+    function pageById(id) { return pages.filter(function (p) { return p.id === id; })[0]; }
+
+    function renderNav() {
+      clear(navEl);
+      navEl.appendChild(h('div', { class: 'config-nav-head' }, 'Settings'));
+      pages.forEach(function (p) {
+        navEl.appendChild(h('button', {
+          class: 'config-nav-item' + (p.id === current ? ' active' : ''),
+          onclick: function () { selectPage(p.id); }
+        }, p.title));
+      });
+    }
+
+    function renderPage(id) {
+      inputs = {};
+      clear(formEl);
+      const page = pageById(id);
+      formEl.appendChild(h('h2', { class: 'cfg-page-title' }, page.title));
+      renderFields(formEl, page.fields);
+      if (page.type) renderBankEditor(formEl, page.type);
+      formEl.appendChild(errorBox);
+      formEl.appendChild(actions);
+    }
+
+    function selectPage(id) {
+      if (current && current !== id) collectCurrentPage();
+      current = id;
+      renderNav();
+      renderPage(id);
+    }
+
+    function save() {
+      collectCurrentPage();
+      const check = cfgMod.validateConfig(draft);
       if (!check.valid) {
         errorBox.hidden = false;
         errorBox.textContent = 'Cannot save:\n• ' + check.errors.join('\n• ');
         return;
       }
       errorBox.hidden = true;
-      opts.onSave(next);
-    } }, 'Save & apply');
+      opts.onSave(draft);
+    }
 
-    const cancelBtn = h('button', { class: 'btn', onclick: function () { opts.onCancel(); } }, 'Close');
-
-    formEl.appendChild(errorBox);
-    formEl.appendChild(h('div', { class: 'cfg-actions' }, saveBtn, cancelBtn));
+    selectPage('general');
   }
 
   root.MDP.ui.configtab = { render: render };

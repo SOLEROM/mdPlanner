@@ -30,8 +30,8 @@
   const els = {};
   function grab() {
     ['menuBtn', 'splitBtn', 'outlineBtn', 'modeBadge', 'fontDown', 'fontUp', 'refreshBtn', 'themeBtn',
-     'configBtn', 'sidebar', 'search', 'openFileBtn', 'fileInput', 'fileList', 'outline', 'readerView',
-     'panes', 'configView', 'configForm', 'toast'].forEach(function (id) {
+     'configBtn', 'sidebar', 'sidebarTools', 'search', 'openFileBtn', 'fileInput', 'fileList', 'configNav',
+     'outline', 'readerView', 'panes', 'configView', 'configForm', 'toast'].forEach(function (id) {
       els[id] = document.getElementById(id);
     });
   }
@@ -337,9 +337,18 @@
     }
   }
 
+  // The sidebar shows the plan tree in reader view, and the config page tree
+  // (General + one page per note type) while the config view is open.
+  function setSidebarMode(config) {
+    els.sidebarTools.hidden = config;
+    els.fileList.hidden = config;
+    els.configNav.hidden = !config;
+  }
+
   function showView(which) {
     els.readerView.hidden = which !== 'reader';
     els.configView.hidden = which !== 'config';
+    setSidebarMode(which === 'config');
     els.outline.hidden = !(which === 'reader' && !state.split && state.ui.outline &&
                            els.outline.childElementCount > 0);
   }
@@ -375,7 +384,7 @@
 
   // ---- config view ----
   function openConfig() {
-    MDP.ui.configtab.render(els.configForm, {
+    MDP.ui.configtab.render(els.configForm, els.configNav, {
       cfg: state.cfg,
       onCancel: function () { showView('reader'); },
       onSave: async function (next) {
@@ -391,6 +400,7 @@
         } catch (e) { toast('Config save failed: ' + e.message, true); }
       }
     });
+    els.sidebar.classList.remove('collapsed');   // ensure the config page tree is visible
     showView('config');
   }
 
