@@ -23,7 +23,8 @@
   const FIELDS = [
     { section: 'General' },
     { path: 'author', label: 'Author label', type: 'text' },
-    { path: 'rootPath', label: 'Server root (Mode 1)', type: 'text' },
+    { path: 'rootPath', label: 'Server root (Mode 1)', type: 'text',
+      hint: 'Folder to list — a full path, or relative to the project. Restart the server to apply.' },
     { path: 'standaloneRoot', label: 'Standalone root (Mode 2)', type: 'text' },
 
     { section: 'Remark markers' },
@@ -88,7 +89,9 @@
         if (f.max) input.max = f.max;
       }
       inputs[f.path] = { input: input, type: f.type };
-      section.appendChild(h('div', { class: 'cfg-field' }, h('label', {}, f.label), input));
+      const field = h('div', { class: 'cfg-field' }, h('label', {}, f.label), input);
+      if (f.hint) field.appendChild(h('small', { class: 'cfg-hint' }, f.hint));
+      section.appendChild(field);
     });
 
     const errorBox = h('div', { class: 'cfg-errors', hidden: true });

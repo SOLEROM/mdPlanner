@@ -354,3 +354,74 @@ def test_adhoc_accepts_multiple_open_dirs(tmp_path):
     finally:
         srv.shutdown()
         srv.server_close()
+
+
+# ---- configured Server-root (config.rootPath drives the listing) ----------
+
+def test_resolve_scan_root_absolute(tmp_path):
+    """An absolute rootPath that exists is used verbatim."""
+    plans = tmp_path / "plans"; plans.mkdir()
+    cfg = {"rootPath": str(plans)}
+    assert server.resolve_scan_root(cfg, str(tmp_path)) == os.path.realpath(str(plans))
+
+
+def test_resolve_scan_root_relative_to_config_root(tmp_path):
+    """A relative rootPath resolves against the config root (like standaloneRoot)."""
+    plans = tmp_path / "plans"; plans.mkdir()
+    cfg = {"rootPath": "plans"}
+    assert server.resolve_scan_root(cfg, str(tmp_path)) == os.path.realpath(str(plans))
+
+
+def test_resolve_scan_root_falls_back_when_missing_or_invalid(tmp_path):
+    """Empty / unset / non-existent rootPath never widens or breaks the listing —
+    it falls back to the config root itself."""
+    base = os.path.realpath(str(tmp_path))
+    assert server.resolve_scan_root({}, str(tmp_path)) == base
+    assert server.resolve_scan_root({"rootPath": ""}, str(tmp_path)) == base
+    assert server.resolve_scan_root({"rootPath": "  "}, str(tmp_path)) == base
+    assert server.resolve_scan_root({"rootPath": "does/not/exist"}, str(tmp_path)) == base
+
+
+def test_config_root_decoupled_from_scan_root(tmp_path):
+    """The listing scans ROOT while config.json is read/written at CONFIG_ROOT — so the
+    Server-root field the UI edits is the same file the launcher resolves rootPath from."""
+    scan = tmp_path / "plans"; scan.mkdir()
+    (scan / "only.md").write_text("# Only\n", encoding="utf-8")
+    cfg_root = tmp_path                       # config lives here, NOT under scan/
+    (cfg_root / ".mdplanner").mkdir()
+    (cfg_root / ".mdplanner" / "config.json").write_text(
+        json.dumps({"author": "rooty", "rootPath": "plans"}), encoding="utf-8")
+    # a stray plan next to the config must NOT appear (we scan `scan`, not cfg_root)
+    (cfg_root / "stray.md").write_text("# Stray\n", encoding="utf-8")
+
+    srv = server.build_server(str(scan), "127.0.0.1", 0, config_root=str(cfg_root))
+    port = srv.server_address[1]
+    thread = threading.Thread(target=srv.serve_forever, daemon=True)
+    thread.start()
+    try:
+        # listing is scoped to the scan root
+        _, payload = request(port, "GET", "/api/files")
+        paths = {e["path"] for e in json.loads(payload)["data"]}
+        assert paths == {"only.md"}, paths
+        # config is read from the decoupled config root
+        _, payload = request(port, "GET", "/api/config")
+        assert json.loads(payload)["data"]["author"] == "rooty"
+        # and a PUT lands back in the config root, not the scan root
+        cfg = json.loads(payload)["data"]; cfg["author"] = "changed"
+        assert request(port, "PUT", "/api/config", body=cfg)[0] == 200
+        saved = json.loads((cfg_root / ".mdplanner" / "config.json").read_text(encoding="utf-8"))
+        assert saved["author"] == "changed"
+        assert not (scan / ".mdplanner").exists(), "config must not leak into the scan root"
+    finally:
+        srv.shutdown()
+        srv.server_close()
+
+
+def test_config_root_defaults_to_scan_root(tmp_path):
+    """With no config_root, behavior is unchanged: config lives inside the scan root."""
+    (tmp_path / "a.md").write_text("# A\n", encoding="utf-8")
+    srv = server.build_server(str(tmp_path), "127.0.0.1", 0)
+    try:
+        assert srv.config_root == os.path.realpath(str(tmp_path))
+    finally:
+        srv.server_close()

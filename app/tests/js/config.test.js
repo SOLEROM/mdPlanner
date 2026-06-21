@@ -54,7 +54,7 @@ test('validateConfig rejects duplicate type labels and bad type colours', () => 
 
 test('per-mode roots: server rootPath + standaloneRoot defaults and validation', () => {
   const cfg = config.mergeConfig({});
-  assert.equal(cfg.rootPath, '/data/aproj/mdplaner');     // server (Mode 1)
+  assert.equal(cfg.rootPath, 'plans');                    // server (Mode 1): defaults to the project's plans/
   assert.equal(cfg.standaloneRoot, '../../plans');        // standalone (Mode 2)
   assert.equal(config.validateConfig(cfg).valid, true);
   const bad = config.validateConfig(config.mergeConfig({ standaloneRoot: 123 }));

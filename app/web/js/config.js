@@ -17,7 +17,7 @@
 
   // The single source of truth for defaults. Mirrors PLAN.md §5 exactly.
   const DEFAULT_CONFIG = {
-    rootPath: '/data/aproj/mdplaner',          // server (Mode 1) markdown root
+    rootPath: 'plans',                         // server (Mode 1) markdown root, relative to the project
     standaloneRoot: '../../plans',             // standalone (Mode 2) plans folder,
                                                // resolved relative to index.standalone.html
     author: 'me',

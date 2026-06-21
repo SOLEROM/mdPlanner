@@ -194,13 +194,23 @@ If you change the line-map logic, re-check all three.
   returns and hides the panel for any other pane — keep that guard.
 - There's **one** global `document` mousedown listener (dismisses the annotate bar),
   guarded by `docWired`; don't add per-pane document listeners.
-- `server.py` root precedence: CLI arg → else `os.path.dirname(APP_DIR)`. Host/port:
-  CLI flag → `MDPLANNER_*` env → `config.server.*`. The config `rootPath` (the **Server
-  root** field) is the saved default but the **launch arg / default is what actually
-  scans** (config lives inside the root). The root now **only scopes the left-menu
-  listing** (`/api/files` + relative `/api/file`); on-demand (`--open`) bypasses it
-  entirely, so a fresh idea like "make the Server-root field re-scope the live listing"
-  is unbuilt-by-design (it'd let any LAN client redirect the server's file root).
+- `server.py` **scan-root** precedence: explicit CLI arg → else `config.rootPath`
+  (resolved by `resolve_scan_root`: absolute as-is, relative against the config root,
+  invalid/blank ⇒ fall back to the config root) → the config root is `os.path.dirname(APP_DIR)`.
+  Host/port: CLI flag → `MDPLANNER_*` env → `config.server.*`. **Config location is
+  decoupled from the scan root** (`PlannerServer.config_root`): with no explicit CLI root,
+  config stays at `dirname(APP_DIR)` while the listing scans `rootPath`, so the **Server
+  root** field the UI edits is the *same* file the launcher reads back (one source of
+  truth, no drift). An **explicit** CLI root scopes BOTH listing and config (legacy) and
+  **ignores `rootPath`** — that's the lock. `run.sh` learns the resolved root via
+  `server.py --print-root` (for the log line + baked unit/hardening) and only bakes a
+  positional root into `ExecStart` when one was given explicitly; otherwise the service
+  re-resolves `rootPath` at start (edit the field + `systemctl restart mdplanner` re-scopes,
+  no reinstall). Resolution is **launch-time only**, never a live redirect — a LAN client's
+  config PUT can change `rootPath`, but it takes effect only on the host's next restart, and
+  writes stay path-safe within whichever root is active. The root still **only scopes the
+  left-menu listing** (`/api/files` + relative `/api/file`); on-demand (`--open`) bypasses
+  it entirely. To pin a deployment so the field can't repoint it, launch with an explicit ROOT.
 - **Per-mode roots:** `rootPath` = server root (Mode 1), `standaloneRoot` = standalone
   root (Mode 2, default `../../plans`). `ClientStorage.list()/read()` resolve
   `standaloneRoot` **relative to `index.standalone.html`** and fetch it — but only when

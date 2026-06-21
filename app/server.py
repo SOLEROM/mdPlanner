@@ -132,8 +132,13 @@ def list_md_files(root: str, cfg: dict):
 class PlannerServer(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, server_address, root: str, open_dir=None, open_any=False):
+    def __init__(self, server_address, root: str, open_dir=None, open_any=False, config_root=None):
         self.root = os.path.realpath(root)
+        # Config (.mdplanner/config.json) may live somewhere OTHER than the scan root:
+        # when the listing follows the configured rootPath (no explicit CLI root), the
+        # config stays at the app's default root so there's a single source of truth the
+        # launcher and the running server share. Defaults to the scan root (legacy).
+        self.config_root = os.path.realpath(config_root) if config_root else self.root
         # On-demand ("ad-hoc") plans: an in-memory {id -> realpath} registry of files
         # OUTSIDE the root that a LOCAL process explicitly pinned via POST /api/adhoc.
         # Files are only ever reached by their opaque id (never a client-supplied path).
@@ -277,14 +282,14 @@ class PlannerHandler(BaseHTTPRequestHandler):
     def _api_get(self, path: str, query: dict):
         root = self.server.root
         if path == "/api/files":
-            cfg = read_config(root)
+            cfg = read_config(self.server.config_root)
             return self._ok(list_md_files(root, cfg))
         if path == "/api/adhoc":
             return self._ok(self._list_adhoc())
         if path == "/api/file":
             return self._get_file(root, query)
         if path == "/api/config":
-            return self._ok(read_config(root))
+            return self._ok(read_config(self.server.config_root))
         return self._err(404, "unknown endpoint")
 
     def _get_file(self, root: str, query: dict):
@@ -345,7 +350,7 @@ class PlannerHandler(BaseHTTPRequestHandler):
         return None
 
     def _list_adhoc(self):
-        cfg = read_config(self.server.root)
+        cfg = read_config(self.server.config_root)
         with self.server.adhoc_lock:
             items = list(self.server.adhoc.items())
         out = []
@@ -407,7 +412,7 @@ class PlannerHandler(BaseHTTPRequestHandler):
         if path == "/api/file":
             return self._put_file(root, query)
         if path == "/api/config":
-            return self._put_config(root)
+            return self._put_config(self.server.config_root)
         return self._err(404, "unknown endpoint")
 
     def _put_file(self, root: str, query: dict):
@@ -431,7 +436,7 @@ class PlannerHandler(BaseHTTPRequestHandler):
         mtime = atomic_write(target, body)
         return self._ok({"path": rel, "mtime": mtime})
 
-    def _put_config(self, root: str):
+    def _put_config(self, config_root: str):
         body = self._read_body()
         if body is None:
             return self._err(413, "body too large")
@@ -442,17 +447,36 @@ class PlannerHandler(BaseHTTPRequestHandler):
         if not isinstance(cfg, dict):
             return self._err(400, "config must be an object")
         merged = mdmarks.merge_config(cfg)
-        mtime = atomic_write(config_path(root), json.dumps(merged, ensure_ascii=False, indent=2).encode("utf-8"))
+        mtime = atomic_write(config_path(config_root), json.dumps(merged, ensure_ascii=False, indent=2).encode("utf-8"))
         return self._ok({"mtime": mtime})
 
     def log_message(self, fmt, *args):  # concise single-line access log to stderr
         sys.stderr.write("%s - %s\n" % (self.address_string(), fmt % args))
 
 
-def build_server(root: str, host: str, port: int, open_dir=None, open_any=False) -> PlannerServer:
+def build_server(root: str, host: str, port: int, open_dir=None, open_any=False, config_root=None) -> PlannerServer:
     if not os.path.isdir(root):
         raise SystemExit("root is not a directory: %s" % root)
-    return PlannerServer((host, port), root, open_dir, open_any)
+    return PlannerServer((host, port), root, open_dir, open_any, config_root)
+
+
+def resolve_scan_root(cfg: dict, config_root: str) -> str:
+    """The directory the left-menu listing scans when NO explicit root is given.
+
+    Follows cfg['rootPath'] (the **Server root** field): absolute paths as-is, relative
+    paths resolved against the config root (like standaloneRoot). Falls back to the config
+    root when rootPath is empty or not an existing directory, so a typo never breaks or
+    widens the listing. Resolution is at LAUNCH only — never a live LAN redirect — and an
+    explicit CLI root bypasses it entirely (§ gotcha in CLAUDE.md)."""
+    raw = (cfg.get("rootPath") or "").strip()
+    if raw:
+        cand = os.path.expanduser(raw)
+        if not os.path.isabs(cand):
+            cand = os.path.join(config_root, cand)
+        cand = os.path.realpath(cand)
+        if os.path.isdir(cand):
+            return cand
+    return os.path.realpath(config_root)
 
 
 def resolve_open_dirs(root: str, cli_values) -> list:
@@ -525,9 +549,13 @@ def open_remote(file_path: str, port: int) -> int:
 def parse_args(argv):
     parser = argparse.ArgumentParser(description="MD Planner Mode-1 server")
     default_root = os.path.dirname(APP_DIR)
-    parser.add_argument("root", nargs="?", default=None, help="markdown root (default: %s)" % default_root)
+    parser.add_argument("root", nargs="?", default=None,
+                        help="markdown root to list — explicit value bypasses config.rootPath "
+                             "(default: config.rootPath resolved against %s, else %s)" % (default_root, default_root))
     parser.add_argument("--host", default=None, help="bind host (default from config.server.host)")
     parser.add_argument("--port", type=int, default=None, help="bind port (default from config.server.port)")
+    parser.add_argument("--print-root", action="store_true",
+                        help="print the resolved markdown root and exit (used by run.sh to bake the unit)")
     parser.add_argument("--open", default=None, metavar="FILE",
                         help="ask the running server to render an external plan on demand, then exit")
     parser.add_argument("--open-dir", action="append", default=None, metavar="DIR",
@@ -539,18 +567,35 @@ def parse_args(argv):
 
 def main(argv=None):
     args, default_root = parse_args(argv if argv is not None else sys.argv[1:])
-    root = os.path.realpath(args.root or default_root)
-    cfg = read_config(root)
+    # Config lives by the app (the default root), independent of the scan root.
+    config_root = os.path.realpath(default_root)
+    if args.root:
+        # An explicit root scopes BOTH the listing and the config (legacy behavior); it
+        # deliberately ignores cfg.rootPath so a fixed/locked deployment can't be re-pointed.
+        root = os.path.realpath(os.path.expanduser(args.root))
+        config_root = root
+        cfg = read_config(config_root)
+    else:
+        # No explicit root: the listing follows the configured rootPath (resolved at launch
+        # against the config root); config stays put so the launcher and server agree.
+        cfg = read_config(config_root)
+        root = resolve_scan_root(cfg, config_root)
+    if args.print_root:                            # run.sh asks for the resolved root, then exits
+        print(root)
+        return 0
     host = args.host or os.environ.get("MDPLANNER_HOST") or cfg["server"]["host"]
     port = args.port or int(os.environ.get("MDPLANNER_PORT") or cfg["server"]["port"])
     if args.open is not None:                      # client mode: talk to the running server, don't bind
         return open_remote(args.open, port)
     open_dirs = resolve_open_dirs(root, args.open_dir)
     open_any = wants_open_any(args.open_any, open_dirs)
-    server = build_server(root, host, port, open_dirs, open_any)
+    server = build_server(root, host, port, open_dirs, open_any, config_root=config_root)
     shown = host if host != "0.0.0.0" else "<this-host-LAN-IP>"
     sys.stderr.write("MD Planner serving %s\n  local:  http://127.0.0.1:%d/\n  LAN:    http://%s:%d/\n"
                      % (root, port, shown, port))
+    if config_root != root:
+        sys.stderr.write("  config: %s  (root follows config.rootPath; pass a root arg to lock it)\n"
+                         % config_path(config_root))
     if open_any:
         sys.stderr.write("  on-demand plans: enabled for ANY path (--open-any)  (./run.sh --open FILE)\n")
     elif open_dirs:

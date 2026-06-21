@@ -17,7 +17,7 @@ import re
 
 # Mirror of web/js/config.js DEFAULT_CONFIG (PLAN.md §5). Kept in sync by tests.
 DEFAULT_CONFIG = {
-    "rootPath": "/data/aproj/mdplaner",
+    "rootPath": "plans",
     "standaloneRoot": "../../plans",
     "author": "me",
     "fileGlob": "**/*.md",

@@ -4,7 +4,8 @@
 #   ./run.sh [ROOT] [...] --service          install + start it as a systemd service
 #   ./run.sh --status | --restart | --stop   manage the installed service (proxy systemctl)
 #   ./run.sh --help                          show help (explains both run modes)
-# ROOT defaults to this app's parent directory (the md root that contains app/).
+# ROOT defaults to the configured Server-root field (⚙ → Server root, i.e. config.rootPath),
+# falling back to this app's parent directory (the md root that contains app/) when unset.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -50,12 +51,27 @@ for a in "$@"; do
 done
 set -- "${PASS[@]+"${PASS[@]}"}"
 
-# ---- ROOT detection (first non-flag arg; default = parent of app/) ----
+# ---- ROOT detection (first non-flag arg; else config.rootPath; else parent of app/) ----
+# An explicit ROOT scopes the listing AND locks it (server.py then ignores config.rootPath).
+# With no ROOT, the listing follows the configured Server-root field (⚙ → Server root) —
+# server.py --print-root resolves it so the launcher (logs, baked unit, hardening) and the
+# running server always agree on the same directory.
+APP_PARENT="$(dirname "$HERE")"
 if [[ "${1:-}" == "" || "${1:-}" == --* ]]; then
-  ROOT="$(dirname "$HERE")"
+  ROOT_EXPLICIT=0
+  ROOT=""
+  [ -n "$PY" ] && ROOT="$("$PY" "$HERE/server.py" --print-root 2>/dev/null || true)"
+  [ -n "$ROOT" ] || ROOT="$APP_PARENT"
 else
+  ROOT_EXPLICIT=1
   ROOT="$1"; shift
 fi
+# Where config.json lives (independent of the scan root unless ROOT is explicit): the app's
+# parent by default, so the field the UI edits is the same one --print-root reads back.
+if [ "$ROOT_EXPLICIT" = 1 ]; then CONFIG_ROOT="$ROOT"; else CONFIG_ROOT="$APP_PARENT"; fi
+# Only an explicit ROOT is baked into the unit's ExecStart; otherwise the service resolves
+# config.rootPath itself at start (so editing the field + restart re-scopes — no reinstall).
+if [ "$ROOT_EXPLICIT" = 1 ]; then ROOT_EXEC=" \"$ROOT\""; else ROOT_EXEC=""; fi
 # Remaining "$@" are passthrough flags for server.py (e.g. --host/--port).
 PASSTHRU="$*"
 # Writable scope for on-demand (--open) plans. UNRESTRICTED BY DEFAULT — any path is
@@ -81,9 +97,11 @@ else
     OPEN_DIR_RWP="$OPEN_DIR_RWP \"$_d\""
   done
   UNIT_PRIVATE_TMP="true"
+  # CONFIG_ROOT may sit outside ROOT (config follows the app, not the scan root) — keep it
+  # writable so PUT /api/config can save the field that drives the listing.
   UNIT_HARDENING="ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=\"$ROOT\" \"$HERE\"$OPEN_DIR_RWP"
+ReadWritePaths=\"$ROOT\" \"$HERE\" \"$CONFIG_ROOT\"$OPEN_DIR_RWP"
 fi
 PORT_HINT=8787
 _prev=""
@@ -124,7 +142,10 @@ without moving it into ROOT (ROOT only scopes the left-menu list) —
   --open-dir DIR (repeatable) to restrict + keep the service's FS hardening.
 
 Arguments:
-  ROOT          Markdown root to serve — scopes the left-menu list (default: $(dirname "$HERE")).
+  ROOT          Markdown root to list — scopes the left-menu list. Omit it to FOLLOW the
+                configured Server-root field (⚙ → Server root / config.rootPath, resolved
+                against $APP_PARENT); an explicit value overrides AND locks it (config.rootPath
+                is ignored). Fallback when the field is unset/invalid: $APP_PARENT.
   --host H      Bind host   (default: config.server.host / \$MDPLANNER_HOST / 0.0.0.0).
   --port P      Bind port   (default: config.server.port / \$MDPLANNER_PORT / 8787).
   --open FILE   Ask the running server to render an external plan, then exit (client mode).
@@ -168,7 +189,7 @@ WorkingDirectory=$HERE
 Environment=PYTHONUNBUFFERED=1
 # Refresh the Mode-2 standalone bundle on each start (non-fatal: leading '-').
 ExecStartPre=-$PY $HERE/build-standalone.py
-ExecStart=$PY $HERE/server.py "$ROOT"$OPEN_DIR_EXEC $PASSTHRU
+ExecStart=$PY $HERE/server.py$ROOT_EXEC$OPEN_DIR_EXEC $PASSTHRU
 Restart=on-failure
 RestartSec=2
 
@@ -272,5 +293,10 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   if [ "$WANT_OPEN" = 1 ]; then exec "$PY" "$HERE/server.py" --open "$OPEN_FILE" "$@"; fi
   if [ "$WANT_SERVICE" = 1 ]; then install_service; exit 0; fi
   build_bundle
-  exec "$PY" "$HERE/server.py" "$ROOT" "${OPEN_DIR_ARGS[@]}" "$@"
+  # Pass ROOT positionally only when explicit; otherwise let server.py follow config.rootPath.
+  if [ "$ROOT_EXPLICIT" = 1 ]; then
+    exec "$PY" "$HERE/server.py" "$ROOT" "${OPEN_DIR_ARGS[@]}" "$@"
+  else
+    exec "$PY" "$HERE/server.py" "${OPEN_DIR_ARGS[@]}" "$@"
+  fi
 fi

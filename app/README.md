@@ -53,12 +53,19 @@ MD Planner serving /data/aproj/mdplaner
 - On the **tablet/phone on the same Wi-Fi**, open `http://<host-ip>:8787/`
   (find the host IP with `ip addr` / `hostname -I` — e.g. `http://192.168.1.20:8787/`).
 
-The root defaults to the parent of this `app/` folder (the directory that contains
-`app/`). Override it with the first argument, and the host/port with flags:
+The root (the folder whose `.md` files fill the left list) follows the **Server root**
+field (⚙ → Server root, saved as `rootPath`): a relative value like `plans` resolves
+against the project folder, an absolute path is used as-is, and a blank or non-existent
+path falls back to the parent of this `app/` folder. Pass a root as the first argument to
+**override and lock** it (the field is then ignored), and set the host/port with flags:
 
 ```bash
 python3 server.py /path/to/your/plans --host 0.0.0.0 --port 9000
 ```
+
+Changing the field re-scopes the list on the next server start (use **⚙** in the UI, then
+restart). Editing it never redirects a running server live — that's deliberate, so a tablet
+on the LAN can't repoint the host's file root.
 
 (Host/port also fall back to `server.host` / `server.port` in the config file, and to
 the `MDPLANNER_HOST` / `MDPLANNER_PORT` environment variables.)
@@ -74,13 +81,15 @@ nohup ./run.sh > ~/mdplanner.log 2>&1 &
 Proper — install a **systemd service** that starts at boot and restarts on failure:
 
 ```bash
-./run.sh --service                         # serves the default root on :8787
-./run.sh /path/to/plans --port 9000 --service   # bake a custom root/port into the unit
+./run.sh --service                         # follows the Server-root field, on :8787
+./run.sh /path/to/plans --port 9000 --service   # bake a custom root/port into the unit (locks it)
 ```
 
 `--service` writes `/etc/systemd/system/mdplanner.service` (running as **you**, not root —
-it honours `$SUDO_USER`), reloads systemd, and `enable --now`s it. The chosen `ROOT` and
-any `--host`/`--port` are baked into the unit, and an `ExecStartPre` rebuilds the Mode-2
+it honours `$SUDO_USER`), reloads systemd, and `enable --now`s it. With no `ROOT` argument the
+service **follows the configured Server-root field** — edit it in **⚙** and
+`./run.sh --restart` to re-scope, no reinstall. An explicit `ROOT` and any `--host`/`--port`
+are baked into the unit, and an `ExecStartPre` rebuilds the Mode-2
 bundle on every start. `NoNewPrivileges` is always on; the filesystem sandbox depends on the
 on-demand mode — **unrestricted by default** (relaxed, see [On-demand plans](#on-demand-plans--review-a-file-outside-the-root-no-syncing)),
 or fully locked down (`ProtectSystem=strict`, `ReadWritePaths` = root + app dir + your dirs)
@@ -262,10 +271,13 @@ remark / wrong / fix), theme, font scale, rendering toggles, and the server host
 Settings are stored in one synced file:
 
 ```
-<root>/.mdplanner/config.json
+<project>/.mdplanner/config.json      # the folder that holds app/ (NOT the scanned root)
 ```
 
-In Mode 1 the server reads/writes it; in Mode 2 overrides are kept in the browser's
+The config lives next to `app/`, independent of whichever folder the **Server root** field
+points the listing at — so the field you edit and the file the launcher reads are always the
+same one. (Passing an explicit `ROOT` on the command line moves both into that root, the
+legacy behaviour.) In Mode 1 the server reads/writes it; in Mode 2 overrides are kept in the browser's
 `localStorage`. Because the format tokens live in this one file, both devices parse and
 write **identical** markers. Changing, say, `marker.iconOpen` from `🔴` to `❗` changes the
 grammar everywhere with no code change.
@@ -275,7 +287,7 @@ Key defaults (see `web/js/config.js` / `mdmarks.py` for the full schema):
 ```jsonc
 {
   "author": "me",
-  "rootPath": "/data/aproj/mdplaner",   // Server root (Mode 1)
+  "rootPath": "plans",                  // Server root (Mode 1): relative to <project>, or absolute
   "standaloneRoot": "../../plans",       // Standalone root (Mode 2), relative to index.standalone.html
   "marker": {
     "iconOpen": "🔴", "iconResolved": "⚪", "replyPrefix": "↳ ",

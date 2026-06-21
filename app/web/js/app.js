@@ -437,7 +437,11 @@
   }
 
   function wireControls() {
-    els.menuBtn.addEventListener('click', function () { els.sidebar.classList.toggle('collapsed'); });
+    els.menuBtn.addEventListener('click', function () {
+      const open = els.sidebar.classList.toggle('collapsed') === false;
+      els.menuBtn.setAttribute('aria-pressed', String(open));
+      els.menuBtn.classList.toggle('active', open);
+    });
     els.splitBtn.addEventListener('click', function () { setSplit(!state.split); });
     els.outlineBtn.addEventListener('click', toggleOutline);
     els.fontUp.addEventListener('click', function () { bumpFont(0.1); });
